@@ -28,6 +28,7 @@ interface TbRoomRepository : JpaRepository<TbRoom, Long> {
     @Query("""
         SELECT DISTINCT r FROM TbRoom r
         WHERE (:buildingName IS NULL OR r.buildingName = :buildingName) 
+        AND (:roomName IS NULL OR r.roomName = :roomName) 
         AND (:floor IS NULL OR r.floor = :floor)
         AND (:status IS NULL OR r.roomStatus = :status)
         AND (:minCapacity IS NULL OR r.capacity >= :minCapacity)
@@ -35,6 +36,7 @@ interface TbRoomRepository : JpaRepository<TbRoom, Long> {
     """)
     fun searchRooms(
         @Param(value = "buildingName") buildingName: String?,
+        @Param(value = "roomName") roomName: String? = null,
         @Param("floor") floor: Long?,
         @Param("status") status: RoomStatus?,
         @Param("minCapacity") minCapacity: Int?
@@ -54,12 +56,16 @@ interface TbRoomRepository : JpaRepository<TbRoom, Long> {
             AND res.startTime < :endTime
             AND res.endTime > :startTime
         )
+        AND (:buildingName IS NULL OR r.buildingName = :buildingName) 
+        AND (:roomName IS NULL OR r.roomName = :roomName)
         ORDER BY r.roomName ASC
     """)
     fun findAvailableRooms(
         @Param("date") date: LocalDate,
         @Param("startTime") startTime: LocalTime,
         @Param("endTime") endTime: LocalTime,
-        @Param("minCapacity") minCapacity: Int?
+        @Param("minCapacity") minCapacity: Int?,
+        @Param("buildingName") buildingName: String? = null,
+        @Param("roomName") roomName: String? = null
     ): List<TbRoom>
 }

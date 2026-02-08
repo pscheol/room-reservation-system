@@ -30,6 +30,7 @@ class TbRoomAdapter(
     override fun loadRooms(query: RoomQuery): List<Room> {
         val entities = roomJpaRepository.searchRooms(
             buildingName = query.buildingName?.value ,
+            roomName = query.roomName?.value,
             floor = query.floor?.value,
             status = query.status,
             minCapacity = query.minCapacity
@@ -39,26 +40,14 @@ class TbRoomAdapter(
 
     override fun loadAvailableRooms(query: AvailableRoomQuery): List<Room> {
         // 건물 ID 필터링이 필요한 경우
-        val entities = if (query.buildingName != null) {
-            val buildingRooms = roomJpaRepository.findByBuildingName(query.buildingName.value)
-            val availableRooms = roomJpaRepository.findAvailableRooms(
-                date = query.date,
-                startTime = query.startTime,
-                endTime = query.endTime,
-                minCapacity = query.minCapacity
-            )
-
-            availableRooms.filter { availableRoom ->
-                buildingRooms.any { it.id == availableRoom.id }
-            }
-        } else {
-            roomJpaRepository.findAvailableRooms(
-                date = query.date,
-                startTime = query.startTime,
-                endTime = query.endTime,
-                minCapacity = query.minCapacity
-            )
-        }
+        val entities = roomJpaRepository.findAvailableRooms(
+            date = query.date,
+            startTime = query.startTime,
+            endTime = query.endTime,
+            minCapacity = query.minCapacity,
+            buildingName = query.buildingName?.value,
+            roomName = query.roomName?.value
+        )
 
         return mapper.toDomainList(entities)
     }

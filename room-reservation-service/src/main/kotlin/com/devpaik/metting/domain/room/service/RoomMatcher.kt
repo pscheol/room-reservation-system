@@ -3,6 +3,9 @@ package com.devpaik.metting.domain.room.service
 import com.devpaik.metting.domain.room.aggregate.Room
 import com.devpaik.metting.domain.room.aggregate.vo.RoomRequirement
 import com.devpaik.metting.domain.room.service.strategy.RoomMatchingStrategy
+import org.apache.tomcat.util.collections.SynchronizedQueue
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.locks.ReentrantLock
 
 /**
  * 회의실 매칭 도메인 서비스 인터페이스

@@ -151,6 +151,7 @@ interface RoomAPI {
             
             ### 검색 조건
             - buildingId: 특정 건물의 회의실
+            - roomName: 특정 회의실명
             - floorId: 특정 층의 회의실
             - minCapacity: 최소 수용 인원
             - status: 회의실 상태
@@ -170,6 +171,9 @@ interface RoomAPI {
     fun searchRooms(
         @Parameter(description = "건물명", example = "홍길건물")
         @RequestParam(required = false) buildingName: String?,
+
+        @Parameter(description = "회의실명", example = "대회의실 A")
+        @RequestParam(required = false) roomName: String?,
 
         @Parameter(description = "회의실 층 수", example = "5")
         @RequestParam(required = false) floor: Long?,
@@ -218,6 +222,9 @@ interface RoomAPI {
 
         @Parameter(description = "건물 명", example = "홍길건물")
         @RequestParam(required = false) buildingName: String?,
+
+        @Parameter(description = "회의실 명", example = "대회의실 A")
+        @RequestParam(required = false) roomName: String?,
 
         @Parameter(description = "최소 수용 인원", example = "10")
         @RequestParam(required = false) minCapacity: Int?

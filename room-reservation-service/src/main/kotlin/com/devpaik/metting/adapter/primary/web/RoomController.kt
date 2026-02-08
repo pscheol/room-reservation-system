@@ -17,6 +17,7 @@ import com.devpaik.metting.application.room.usecase.query.RoomQuery
 import com.devpaik.metting.domain.common.vo.Floor
 import com.devpaik.metting.domain.common.vo.RoomId
 import com.devpaik.metting.domain.room.aggregate.vo.BuildingName
+import com.devpaik.metting.domain.room.aggregate.vo.RoomName
 import com.devpaik.metting.domain.room.aggregate.vo.RoomStatus
 import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.http.HttpStatus
@@ -43,12 +44,14 @@ class RoomController(
     @GetMapping
     override fun searchRooms(
         @RequestParam(required = false) buildingName: String?,
+        @RequestParam(required = false) roomName: String?,
         @RequestParam(required = false) floor: Long?,
         @RequestParam(required = false) minCapacity: Int?,
         @RequestParam(required = false) status: RoomStatus?
     ): ResponseEntity<List<RoomResponse>> {
         val query = RoomQuery(
             buildingName = buildingName?.let { BuildingName(it) },
+            roomName = roomName?.let { RoomName(it) },
             floor = floor?.let { Floor(it) },
             minCapacity = minCapacity,
             status = status
@@ -65,6 +68,7 @@ class RoomController(
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) startTime: LocalTime,
         @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) endTime: LocalTime,
         @RequestParam(required = false) buildingName: String?,
+        @RequestParam(required = false) roomName: String?,
         @RequestParam(required = false) minCapacity: Int?
     ): ResponseEntity<List<RoomResponse>> {
         val query = AvailableRoomQuery(
@@ -72,6 +76,7 @@ class RoomController(
             startTime = startTime,
             endTime = endTime,
             buildingName = buildingName?.let { BuildingName(it) },
+            roomName = roomName?.let { RoomName(it) },
             minCapacity = minCapacity
         )
 
