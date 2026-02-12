@@ -27,7 +27,7 @@ interface TbReservationRepository : JpaRepository<TbReservation, Long> {
         SELECT r FROM TbReservation r
         JOIN FETCH r.room rm
         LEFT JOIN FETCH r.participants p
-        WHERE (:userEmail IS NULL OR (p.participantEmail = :userEmail AND p.participantType = 'ORGANIZER'))
+        WHERE (:userEmail IS NULL OR (r.userEmail = :userEmail))
         AND (:roomName IS NULL OR rm.roomName = :roomName)
         AND (:buildingName IS NULL OR rm.buildingName = :buildingName)
         AND (:startDate IS NULL OR r.reservationDate >= :startDate)
@@ -68,8 +68,7 @@ interface TbReservationRepository : JpaRepository<TbReservation, Long> {
         SELECT r FROM TbReservation r
         JOIN FETCH r.room rm
         LEFT JOIN FETCH r.participants p
-        WHERE p.participantEmail = :email
-        AND p.participantType = 'ORGANIZER'
+        WHERE r.userEmail = :email
         AND r.reservationDate >= :fromDate
         AND r.status IN ('CONFIRMED', 'PENDING')
         ORDER BY r.reservationDate ASC, r.startTime ASC
