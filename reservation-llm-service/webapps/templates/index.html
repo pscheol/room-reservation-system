@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>회의실 예약 챗봇</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Marked.js for markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        /* 모달 스타일 */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* 스크롤바 스타일 */
+        #chat-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        #chat-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        #chat-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        #chat-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* 메시지 애니메이션 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .message {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* 타이핑 인디케이터 */
+        .typing-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background: #6b7280;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        /* 마크다운 스타일 */
+        .markdown-content ul {
+            list-style-type: disc;
+            margin-left: 1.5rem;
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .markdown-content ol {
+            list-style-type: decimal;
+            margin-left: 1.5rem;
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .markdown-content li {
+            margin-bottom: 0.25rem;
+        }
+        .markdown-content strong {
+            font-weight: 600;
+        }
+        .markdown-content code {
+            background: #f3f4f6;
+            padding: 0.125rem 0.25rem;
+            border-radius: 0.25rem;
+            font-family: monospace;
+            font-size: 0.875rem;
+        }
+        .markdown-content pre {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin: 0.5rem 0;
+        }
+        .markdown-content pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    <!-- 이메일 입력 모달 -->
+    <div id="email-modal" class="modal">
+        <div class="modal-content">
+            <div class="text-center mb-6">
+                <div class="inline-block bg-blue-500 p-4 rounded-full mb-4">
+                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">환영합니다! 👋</h2>
+                <p class="text-gray-600">
+                    회의실 예약 및 조회를 위해<br>
+                    이메일 주소를 입력해주세요
+                </p>
+            </div>
+
+            <form id="email-form" class="space-y-4">
+                <div>
+                    <label for="user-email-input" class="block text-sm font-medium text-gray-700 mb-2">
+                        이메일 주소 <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        type="email"
+                        id="user-email-input"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="your.email@example.com"
+                        required
+                    >
+                    <p class="text-xs text-gray-500 mt-2">
+                        💡 입력하신 이메일은 예약자 정보로 사용됩니다
+                    </p>
+                </div>
+
+                <button
+                    type="submit"
+                    class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-lg transition duration-200 flex items-center justify-center gap-2"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>시작하기</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="container mx-auto max-w-4xl h-screen flex flex-col p-4">
+        <!-- Header -->
+        <header class="mb-4 bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="bg-blue-500 p-3 rounded-lg">
+                        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800">회의실 예약 AI 어시스턴트</h1>
+                        <p class="text-sm text-gray-500">
+                            자연어로 편리하게 회의실을 예약하세요
+                            <span id="user-email-display" class="ml-2 text-blue-600 font-medium"></span>
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="change-email" class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-2 rounded-lg transition duration-200 flex items-center gap-2 text-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                        이메일 변경
+                    </button>
+                    <button id="clear-chat" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg transition duration-200 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                        대화 초기화
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Chat Container -->
+        <main id="chat-container" class="flex-1 bg-white rounded-lg shadow-md p-6 overflow-y-auto mb-4">
+            <!-- Welcome message -->
+            <div id="welcome-message" class="text-center py-12">
+                <div class="inline-block bg-gradient-to-r from-blue-500 to-indigo-600 p-4 rounded-full mb-4">
+                    <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">안녕하세요! 👋</h2>
+                <p class="text-gray-600 mb-6 max-w-md mx-auto">
+                    회의실 예약 AI 어시스턴트입니다.<br>
+                    회의실 검색, 예약, 조회 등을 도와드립니다.
+                </p>
+
+                <!-- Example questions -->
+                <div class="max-w-2xl mx-auto">
+                    <p class="text-sm text-gray-500 mb-3 font-medium">💡 이렇게 물어보세요</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <button class="example-question bg-blue-50 hover:bg-blue-100 text-blue-700 p-4 rounded-lg text-left transition duration-200 border border-blue-200">
+                            <div class="font-medium mb-1">🔍 회의실 검색</div>
+                            <div class="text-sm text-blue-600">"내일 오후 2시부터 4시까지 2명 들어갈 수 있는 회의실 찾아줘"</div>
+                        </button>
+                        <button class="example-question bg-green-50 hover:bg-green-100 text-green-700 p-4 rounded-lg text-left transition duration-200 border border-green-200">
+                            <div class="font-medium mb-1">📅 예약 생성</div>
+                            <div class="text-sm text-green-600">"내일 오후 2시부터 3시까지 회의실 A 예약해줘"</div>
+                        </button>
+                        <button class="example-question bg-purple-50 hover:bg-purple-100 text-purple-700 p-4 rounded-lg text-left transition duration-200 border border-purple-200">
+                            <div class="font-medium mb-1">📋 예약 조회</div>
+                            <div class="text-sm text-purple-600">"내 예약 목록 보여줘"</div>
+                        </button>
+                        <button class="example-question bg-orange-50 hover:bg-orange-100 text-orange-700 p-4 rounded-lg text-left transition duration-200 border border-orange-200">
+                            <div class="font-medium mb-1">⏰ 가용성 확인</div>
+                            <div class="text-sm text-orange-600">"내일 오후 2시부터 3시까지 사용 가능한 회의실은?"</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Input Area -->
+        <footer class="bg-white rounded-lg shadow-md p-4">
+            <div class="flex gap-2">
+                <input
+                    type="text"
+                    id="message-input"
+                    class="flex-1 border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="메시지를 입력하세요... (예: 내일 오후 2시부터 4시까지 2명 들어갈 수 있는 회의실 찾아줘)"
+                    autocomplete="off"
+                >
+                <button
+                    id="send-button"
+                    class="bg-blue-500 hover:bg-blue-600 text-white font-bold px-6 py-3 rounded-lg transition duration-200 flex items-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                    </svg>
+                    <span>전송</span>
+                </button>
+            </div>
+            <div class="text-xs text-gray-500 mt-2 text-center">
+                💡 Tip: Enter 키를 눌러서도 전송할 수 있습니다
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const clearChatButton = document.getElementById('clear-chat');
+        const welcomeMessage = document.getElementById('welcome-message');
+        const sessionId = 'session_' + Date.now();
+
+        // 이메일 관련 요소
+        const emailModal = document.getElementById('email-modal');
+        const emailForm = document.getElementById('email-form');
+        const userEmailInput = document.getElementById('user-email-input');
+        const userEmailDisplay = document.getElementById('user-email-display');
+        const changeEmailButton = document.getElementById('change-email');
+
+        // 로컬 스토리지에서 이메일 가져오기
+        let userEmail = localStorage.getItem('userEmail');
+
+        // 이메일 표시 업데이트
+        function updateEmailDisplay() {
+            if (userEmail) {
+                userEmailDisplay.textContent = `(${userEmail})`;
+            }
+        }
+
+        // 페이지 로드 시 이메일 확인
+        if (!userEmail) {
+            emailModal.style.display = 'block';
+        } else {
+            updateEmailDisplay();
+        }
+
+        // 이메일 폼 제출
+        emailForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const email = userEmailInput.value.trim();
+            if (email) {
+                userEmail = email;
+                localStorage.setItem('userEmail', email);
+                emailModal.style.display = 'none';
+                updateEmailDisplay();
+                messageInput.focus();
+            }
+        });
+
+        // 이메일 변경 버튼
+        changeEmailButton.addEventListener('click', function() {
+            userEmailInput.value = userEmail || '';
+            emailModal.style.display = 'block';
+            userEmailInput.focus();
+        });
+
+        // 예시 질문 버튼 클릭 이벤트
+        document.querySelectorAll('.example-question').forEach(button => {
+            button.addEventListener('click', function() {
+                const questionText = this.querySelector('.text-sm').textContent.replace(/"/g, '');
+                messageInput.value = questionText;
+                messageInput.focus();
+            });
+        });
+
+        // 대화 초기화 버튼
+        clearChatButton.addEventListener('click', async function() {
+            if (confirm('대화 내역을 모두 삭제하시겠습니까?')) {
+                try {
+                    await fetch(`/session/${sessionId}`, { method: 'DELETE' });
+                    chatContainer.innerHTML = '';
+                    welcomeMessage.style.display = 'block';
+                    // 이메일은 유지 (초기화하지 않음)
+                } catch (err) {
+                    console.error('세션 초기화 실패:', err);
+                }
+            }
+        });
+
+        function addMessage(sender, message, isMarkdown = false) {
+            // 웰컴 메시지 숨기기
+            if (welcomeMessage) {
+                welcomeMessage.style.display = 'none';
+            }
+
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message', 'mb-4', 'flex');
+
+            if (sender === 'user') {
+                messageElement.classList.add('justify-end');
+                messageElement.innerHTML = `
+                    <div class="bg-blue-500 text-white p-4 rounded-lg max-w-lg shadow">
+                        <div class="flex items-start gap-2">
+                            <svg class="w-5 h-5 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"></path>
+                            </svg>
+                            <div>${escapeHtml(message)}</div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                messageElement.classList.add('justify-start');
+                const content = isMarkdown ? marked.parse(message) : escapeHtml(message);
+                messageElement.innerHTML = `
+                    <div class="bg-gray-100 text-gray-800 p-4 rounded-lg max-w-lg shadow">
+                        <div class="flex items-start gap-2">
+                            <svg class="w-5 h-5 mt-0.5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"></path>
+                                <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z"></path>
+                            </svg>
+                            <div class="markdown-content">${content}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            chatContainer.appendChild(messageElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function addTypingIndicator() {
+            // 웰컴 메시지 숨기기
+            if (welcomeMessage) {
+                welcomeMessage.style.display = 'none';
+            }
+
+            const typingElement = document.createElement('div');
+            typingElement.id = 'typing-indicator';
+            typingElement.classList.add('message', 'mb-4', 'flex', 'justify-start');
+            typingElement.innerHTML = `
+                <div class="bg-gray-100 text-gray-800 p-4 rounded-lg shadow">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"></path>
+                            <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z"></path>
+                        </svg>
+                        <div class="typing-indicator">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            chatContainer.appendChild(typingElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const typingElement = document.getElementById('typing-indicator');
+            if (typingElement) {
+                typingElement.remove();
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // 이메일 확인
+            if (!userEmail) {
+                alert('먼저 이메일을 입력해주세요.');
+                emailModal.style.display = 'block';
+                return;
+            }
+
+            // 사용자 메시지 추가
+            addMessage('user', message);
+            messageInput.value = '';
+            sendButton.disabled = true;
+
+            // 타이핑 인디케이터 표시
+            addTypingIndicator();
+
+            // 스트리밍 응답을 누적할 변수
+            let accumulatedResponse = '';
+            let streamingMessageElement = null;
+
+            try {
+                console.log('📤 스트리밍 메시지 전송:', message);
+                console.log('🔑 세션 ID:', sessionId);
+                console.log('📧 사용자 이메일:', userEmail);
+
+                // 스트리밍 방식으로 변경
+                const response = await fetch('/chat/stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message,
+                        session_id: sessionId,
+                        user_email: userEmail,
+                        chat_history: []
+                    })
+                });
+
+                console.log('📥 스트리밍 응답 시작:', response.status);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ 응답 오류:', errorText);
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                // 타이핑 인디케이터 제거하고 빈 메시지 박스 생성
+                removeTypingIndicator();
+                streamingMessageElement = createStreamingMessage();
+
+                // ReadableStream 읽기
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.substring(6);
+
+                            if (data === '[DONE]') {
+                                console.log('✅ 스트리밍 완료');
+                                continue;
+                            }
+
+                            try {
+                                const parsed = JSON.parse(data);
+                                console.log('📦 스트리밍 청크:', parsed);
+
+                                if (parsed.type === 'response' && parsed.content) {
+                                    // 응답 누적 및 업데이트
+                                    accumulatedResponse = parsed.content;
+                                    updateStreamingMessage(streamingMessageElement, accumulatedResponse);
+                                } else if (parsed.type === 'error') {
+                                    console.error('⚠️ 스트리밍 에러:', parsed);
+                                    accumulatedResponse = `❌ 오류가 발생했습니다: ${parsed.error || parsed.message}`;
+                                    updateStreamingMessage(streamingMessageElement, accumulatedResponse);
+                                } else if (parsed.type === 'done') {
+                                    console.log('✅ 처리 완료');
+                                }
+                            } catch (e) {
+                                console.warn('JSON 파싱 실패:', data);
+                            }
+                        }
+                    }
+                }
+
+                sendButton.disabled = false;
+
+            } catch (err) {
+                console.error("❌ 스트리밍 요청 실패:", err);
+                removeTypingIndicator();
+                if (streamingMessageElement) {
+                    streamingMessageElement.remove();
+                }
+                addMessage('assistant', `❌ 서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.\n\n오류 상세: ${err.message}`, false);
+                sendButton.disabled = false;
+            }
+        }
+
+        function createStreamingMessage() {
+            // 웰컴 메시지 숨기기
+            if (welcomeMessage) {
+                welcomeMessage.style.display = 'none';
+            }
+
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message', 'mb-4', 'flex', 'justify-start');
+            messageElement.innerHTML = `
+                <div class="bg-gray-100 text-gray-800 p-4 rounded-lg max-w-lg shadow">
+                    <div class="flex items-start gap-2">
+                        <svg class="w-5 h-5 mt-0.5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"></path>
+                            <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z"></path>
+                        </svg>
+                        <div class="markdown-content streaming-content"></div>
+                    </div>
+                </div>
+            `;
+            chatContainer.appendChild(messageElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            return messageElement;
+        }
+
+        function updateStreamingMessage(element, content) {
+            const contentDiv = element.querySelector('.streaming-content');
+            if (contentDiv) {
+                contentDiv.innerHTML = marked.parse(content);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        }
+
+        // 이벤트 리스너
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // 페이지 로드 시 포커스
+        messageInput.focus();
+    </script>
+</body>
+</html>
